@@ -1,0 +1,63 @@
+class AutocallPricing():
+    def __init__(self,S0,r,sigma,T,n_steps,n_simulations,autocall_barrier,protection_barrier,coupon,observation_dates):
+        self.__S0 = S0  # Initial index level
+        self.__r = r  # Risk-free rate
+        self.__sigma = sigma  # Volatility
+        self.__T = T  # Time to maturity in years
+        self.__n_steps = n_steps  # Number of simulation steps
+        self.__n_simulations = n_simulations  # Number of Monte Carlo simulations
+        self.__autocall_barrier = autocall_barrier  # Autocall barrier level
+        self.__protection_barrier = protection_barrier  # Protection barrier level
+        self.__coupon = coupon  # Coupon rate
+        self.__observation_dates = list(observation_dates)  # Variable number of observation dates
+
+    def AutocallPrice(self):
+        
+        #each step
+        dt=self.__T/self.__n_steps
+        paths=np.zeros((self.__n_simulations,self.__n_steps+1))
+        paths[:,0]=self.__S0
+
+        #simulation
+        for t in range(1,self.__n_steps+1):
+        	z=np.random.normal(size=self.__n_simulations) #from 0 to 1
+        	paths[:,t]=paths[:,t-1]*np.exp((self.__r-0.5*self.__sigma**2)*dt+self.__sigma*np.sqrt(dt)*z)
+
+        discount_factor=np.exp(-self.__r*self.__T)
+        payoffs=np.zeros(self.__n_simulations)
+
+        for sim in range(self.__n_simulations):
+            for obs in self.__observation_dates:
+                obs_idx = int(obs * self.__n_steps / self.__T)
+                # PRINCIPAL+COUPON
+                if paths[sim, obs_idx] >= self.__autocall_barrier:
+                    payoffs[sim] = 100 + 100 * self.__coupon * self.__observation_dates.index(obs)
+                    break
+                else:
+                    # PROTECTION
+                    if paths[sim, -1] < self.__protection_barrier:
+                        payoffs[sim] = paths[sim, -1]
+                    # Autocall
+                    else:
+                        payoffs[sim] = 100
+
+        price=np.mean(payoffs)*discount_factor
+        return price  
+    #Stress-Testing on Impl Vol
+    def ImpVolStress(self,sigma_list):
+        sigma_values = []
+        aut_prices = []
+
+        # Iterate over sigma_list
+        for sigma in sigma_list:
+            aut_price = AutocallPricing(self.__S0, self.__r,sigma, self.__T, self.__n_steps, self.__n_simulations, self.__autocall_barrier, self.__protection_barrier, self.__coupon, self.__observation_dates).AutocallPrice()
+            sigma_values.append(sigma)
+            aut_prices.append(aut_price)
+
+        # Plot sigma vs. aut_price
+        plt.plot(sigma_values, aut_prices, marker='o')
+        plt.xlabel('Implied Volatility')
+        plt.ylabel('Autocall Price')
+        plt.title('Autocall Price vs Imp Volatility')
+        plt.grid(True)
+        plt.show()
