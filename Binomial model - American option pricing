@@ -1,0 +1,85 @@
+class American_Option:
+    def __init__(self, S0, K, r, q, T, n, u, d, sigma, is_call=True): #We call it init method
+        self.__S0 = S0   # Initial stock price
+        self.__K = K     # Strike price
+        self.__r = r     # Risk-free rate
+        self.__q = q     # Dividend yield
+        self.__T = T     # Time to maturity
+        self.__n = n     # Number of time steps
+        self.__u = u     # Up factor
+        self.__d = d     # Down factor
+        self.__sigma = sigma  # volatility
+        self.__is_call = is_call
+    
+    def delta_t(self):
+        return self.__T/self.__n
+
+    def risk_neutral_prob(self): #p
+        delta_t=self.delta_t()
+        return (np.exp((self.__r - self.__q) * delta_t) - self.__d) / (self.__u - self.__d)
+
+    def discount_factor(self):
+        delta_t=self.delta_t()
+        return np.exp(-self.__r*delta_t)
+
+    def stock_price_tree(self):
+        stock_price_tree = np.zeros((self.__n + 1, self.__n + 1))
+        stock_price_tree[0, 0] = self.__S0
+        return stock_price_tree
+
+    def trees(self):
+        self.__stock_price_tree = self.stock_price_tree()  # Initialize stock_price_tree
+        self.__p = self.risk_neutral_prob()  # Get risk-neutral probability
+        self.__discount_factor = self.discount_factor()  # Get discount factor
+        
+        for i in range(1, self.__n + 1):
+            self.__stock_price_tree[i, 0] = self.__stock_price_tree[i - 1, 0] * self.__u
+            for j in range(1, i + 1):
+                self.__stock_price_tree[i, j] = self.__stock_price_tree[i - 1, j - 1] * self.__d
+
+        # Payoff calculation for Call and Put options
+        if self.__is_call:
+            self.__option_value_tree = np.maximum(self.__stock_price_tree[-1] - self.__K, 0)  # Call payoff
+        else:
+            self.__option_value_tree = np.maximum(self.__K - self.__stock_price_tree[-1], 0)  # Put payoff
+
+        for i in range(self.__n - 1, -1, -1):
+            for j in range(i + 1):
+                hold_value = (self.__p * self.__option_value_tree[j] + (1 - self.__p) * self.__option_value_tree[j + 1]) * self.__discount_factor
+                early_exercise_value = self.__stock_price_tree[i, j] - self.__K if self.__is_call else self.__K - self.__stock_price_tree[i, j]
+                self.__option_value_tree[j] = np.maximum(hold_value, early_exercise_value)
+
+  # Method to get the stock price tree
+    def get_stock_price_tree(self):
+        self.trees()
+        return self.__stock_price_tree
+
+    def visualize_stock_price_tree(self):
+        stock_price_tree = self.get_stock_price_tree()
+
+        fig, ax = plt.subplots()
+
+        # Plot the tree as a network diagram
+        for i in range(self.__n + 1):
+            for j in range(i + 1):
+                # Plot each node as a circle
+                ax.plot(i, j, 'bo')
+                # Annotate each node with the stock price value
+                ax.text(i, j, f'{stock_price_tree[i, j]:.2f}', color='black', ha='right', fontsize=8)
+                
+                # Draw edges between nodes (up and down connections)
+                if i > 0:
+                    if j < i:  # Upward connection
+                        ax.plot([i - 1, i], [j, j], 'k-')
+                    if j > 0:  # Downward connection
+                        ax.plot([i - 1, i], [j - 1, j], 'k-')
+
+
+    def option_price(self):
+        self.trees()
+        option_price = self.__option_value_tree[0]
+        return option_price
+
+    def get_option_value_tree(self):
+        self.trees()
+        return self.__option_value_tree
