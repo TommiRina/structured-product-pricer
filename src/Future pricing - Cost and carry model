@@ -1,0 +1,18 @@
+class FuturePricing():
+    def __init__(self,S,r,s,c,t,storage_cost_value):
+        self.__S=S
+        self.__r=r
+        self.__s=s #storage cost
+        self.__c=c #convenience yield
+        self.__t=t
+        self.__storage_cost_value=storage_cost_value
+    
+    def future_price_percent_storage_cost(self):
+        future_price=self.__S*np.exp((self.__r+self.__s-self.__c)*self.__t)
+        return future_price
+
+    def future_price_value_storage_cost(self):
+        just_future_price=(self.__S)*np.exp(self.__r*self.__t)
+        storage cost=self.__storage_cost_value*np.exp(self.__r*self.__t)
+        future_price=just_future_price+storage_cost_value
+        return future_price
